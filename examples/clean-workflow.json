@@ -1,0 +1,32 @@
+{
+  "name": "Telegram bot with allowlist and safe HTML replies",
+  "nodes": [
+    {"id": "t1", "name": "Telegram message", "type": "n8n-nodes-base.telegramTrigger", "typeVersion": 1.1, "position": [0, 0], "webhookId": "9e3c5a71-2b4d-4f6e-8a1c-7d5b3e9f2a10",
+      "parameters": {"updates": ["message"], "additionalFields": {}},
+      "credentials": {"telegramApi": {"id": "", "name": "Telegram bot"}}},
+    {"id": "t2", "name": "Allowed chat?", "type": "n8n-nodes-base.if", "typeVersion": 2.2, "position": [240, 0], "parameters": {
+      "conditions": {"options": {"caseSensitive": true, "typeValidation": "strict", "version": 2},
+        "conditions": [{"id": "c1", "leftValue": "={{ ['REPLACE_CHAT_ID_1', 'REPLACE_CHAT_ID_2'].includes(String($json.message?.chat?.id)) }}", "rightValue": true, "operator": {"type": "boolean", "operation": "true", "singleValue": true}}],
+        "combinator": "and"},
+      "options": {}}},
+    {"id": "t3", "name": "Build reply", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [480, -100], "parameters": {
+      "mode": "manual",
+      "assignments": {"assignments": [
+        {"id": "r1", "name": "chatId", "type": "string", "value": "={{ String($json.message.chat.id) }}"},
+        {"id": "r2", "name": "safeText", "type": "string", "value": "={{ ($json.message.text ?? '(no text)').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 3500) }}"},
+        {"id": "r3", "name": "receivedAt", "type": "string", "value": "={{ DateTime.fromSeconds($json.message.date).setZone('Asia/Jakarta').toFormat('dd LLL yyyy HH:mm') }}"}
+      ]},
+      "options": {}}},
+    {"id": "t4", "name": "Reply in chat", "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [720, -100], "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 3000,
+      "parameters": {"chatId": "={{ $json.chatId }}", "text": "=<b>Got it</b> ({{ $json.receivedAt }} WIB)\n<code>{{ $json.safeText }}</code>", "additionalFields": {"appendAttribution": false, "parse_mode": "HTML"}},
+      "credentials": {"telegramApi": {"id": "", "name": "Telegram bot"}}},
+    {"id": "t5", "name": "Ignore unknown chats", "type": "n8n-nodes-base.noOp", "typeVersion": 1, "position": [480, 100], "parameters": {}},
+    {"id": "t6", "name": "Setup note", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [0, -320], "parameters": {"width": 600, "height": 220, "content": "## Telegram bot\n- Replace the allowlist chat ids (send /start, then read message.chat.id from an execution).\n- Replies use HTML parse mode with &, <, > escaped. MarkdownV2 needs 18 characters escaped and breaks often.\n- One bot token = one Telegram webhook. Two active workflows with the same bot will fight over it."}}
+  ],
+  "connections": {
+    "Telegram message": {"main": [[{"node": "Allowed chat?", "type": "main", "index": 0}]]},
+    "Allowed chat?": {"main": [[{"node": "Build reply", "type": "main", "index": 0}], [{"node": "Ignore unknown chats", "type": "main", "index": 0}]]},
+    "Build reply": {"main": [[{"node": "Reply in chat", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

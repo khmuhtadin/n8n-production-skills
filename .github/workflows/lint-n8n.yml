@@ -1,0 +1,13 @@
+name: Lint n8n workflows
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # The broken example is expected to fail; the clean one must pass.
+      - run: node skills/n8n-ship-check/scripts/lint-workflow.mjs examples/clean-workflow.json
+      - run: "! node skills/n8n-ship-check/scripts/lint-workflow.mjs examples/broken-workflow.json"
